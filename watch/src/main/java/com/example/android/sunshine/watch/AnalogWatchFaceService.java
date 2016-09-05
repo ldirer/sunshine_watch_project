@@ -16,7 +16,6 @@
 
 package com.example.android.sunshine.watch;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -104,8 +103,6 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
         private float mCurrentDayDesiredWidth;
 
         private GoogleApiClient mGoogleApiClient;
-        private boolean mRegisteredTimeZoneReceiver;
-        private BroadcastReceiver mTimeZoneReceiver;
 
 
         private Paint createTextPaint(int defaultInteractiveColor) {
@@ -326,29 +323,14 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
                     mGoogleApiClient.connect();
                 }
 
-                registerReceiver();
                 // Update time zone and date formats, in case they changed while we weren't visible.
                 mCalendar.setTimeZone(TimeZone.getDefault());
                 initFormats();
                 invalidate();
 
-            } else {
-                unregisterReceiver();
             }
-
         }
 
-        /**
-         * Handles time zone and locale changes.
-         */
-        final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                mCalendar.setTimeZone(TimeZone.getDefault());
-                initFormats();
-                invalidate();
-            }
-        };
 
         @Override
         public void onConnected(@Nullable Bundle bundle) {
@@ -400,25 +382,5 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
             DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
             Log.d(LOG_TAG, String.format("YAY, got value: %s", dataMap.getString("KEY_STRING")));
         }
-
-
-
-        private void registerReceiver() {
-            if (mRegisteredTimeZoneReceiver) {
-                return;
-            }
-            mRegisteredTimeZoneReceiver = true;
-            IntentFilter filter = new IntentFilter(Intent.ACTION_TIMEZONE_CHANGED);
-            AnalogWatchFaceService.this.registerReceiver(mTimeZoneReceiver, filter);
-        }
-
-        private void unregisterReceiver() {
-            if (!mRegisteredTimeZoneReceiver) {
-                return;
-            }
-            mRegisteredTimeZoneReceiver = false;
-            AnalogWatchFaceService.this.unregisterReceiver(mTimeZoneReceiver);
-        }
-
     }
 }
