@@ -16,9 +16,6 @@
 
 package com.example.android.sunshine.watch;
 
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -35,6 +32,7 @@ import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
 import android.util.Log;
 import android.view.SurfaceHolder;
+import android.view.WindowInsets;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -47,7 +45,6 @@ import com.google.android.gms.wearable.DataItemBuffer;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
-import com.google.android.gms.wearable.WearableListenerService;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -56,7 +53,6 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 
-//https://github.com/sasindroid/WatchFace/blob/master/watch/src/main/java/com/example/android/sunshine/app/MyWatchFace.java
 public class AnalogWatchFaceService extends CanvasWatchFaceService {
 
     private static final Typeface BOLD_TYPEFACE =
@@ -98,8 +94,10 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
         public Paint mHourPaint;
 
 
-        float mTempMax = 20;
-        float mTempMin = 16;
+        // Sensible defaults so we can use them to decide the font size for the temperature.
+        private String mTempMax = "20°";
+        private String mTempMin = "20°";
+        private int mWeatherIconResource = R.drawable.ic_clear;
         private float mCurrentDayDesiredWidth;
 
         private GoogleApiClient mGoogleApiClient;
@@ -126,11 +124,6 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
                     .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
                     .setShowSystemUiTime(false)
                     .build());
-
-
-//            private int mInteractiveBackgroundColor = Color.parseColor("BLUE");
-//            private int mPrimaryColor = Color.parseColor("WHITE");
-//            private int mSecondaryColor = Color.parseColor("GREY");
 
             mCalendar = Calendar.getInstance();
             mDate = new Date();
@@ -190,12 +183,6 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
         }
 
 
-        @Override
-        public void onTapCommand(int tapType, int x, int y, long eventTime) {
-            super.onTapCommand(tapType, x, y, eventTime);
-            Log.d(LOG_TAG, "in onTapCommand");
-        }
-
         private void initFormats() {
             mTimeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
             mDateFormat = new SimpleDateFormat("EE, MMM dd yyyy", Locale.getDefault());
@@ -225,30 +212,28 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
         public void onTimeTick() {
             super.onTimeTick();
             invalidate();
-            if (mGoogleApiClient.isConnected() && !mGoogleApiClient.isConnecting()) {
-                Log.d(LOG_TAG, "RECONNECTING TO GOOGLE API");
-                //TODO: put this in a timer.
-                mGoogleApiClient.connect();
-            }
             /* the time changed */
         }
 
         @Override
         public void onAmbientModeChanged(boolean inAmbientMode) {
+            Log.d(LOG_TAG, "in onAmbientModeChanged");
             super.onAmbientModeChanged(inAmbientMode);
             mAmbient = inAmbientMode;
-            /* the wearable switched between modes */
+            /* the wearable switched between modes. We want to re-draw*/
+            invalidate();
         }
 
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
 
-
             final int mStartX = canvas.getWidth() / 2;
             final int mStartY = canvas.getHeight() / 3;
-            /* draw your watch face */
-//            canvas.drawBitmap(mBackgroundBitmap, 0, 0, mBackgroundPaint);
-            canvas.drawPaint(mBackgroundPaint);
+            if (mAmbient) {
+                canvas.drawColor(Color.BLACK);
+            } else {
+                canvas.drawPaint(mBackgroundPaint);
+            }
 
             canvas.drawText(getCurrentTimeString(mDate).toUpperCase(), mStartX, mStartY, mHourPaint);
 
@@ -272,34 +257,32 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
                     mSecondaryPaint);
 
             int weatherIconY = mStartY + (int) (2 * mYOffset);
-
-            // Align icon with the start of current day string.
-            canvas.drawBitmap(mWeatherIconBitmap, mStartX - mCurrentDayDesiredWidth / 2,
-                    weatherIconY,
-                    null);
-
-            String strTempMin = String.format(getResources().getString(R.string.format_temperature), mTempMin);
-            String strTempMax = String.format(getResources().getString(R.string.format_temperature), mTempMax);
-
-            int temperatureY = weatherIconY +3 * mWeatherIconBitmap.getScaledHeight(canvas) / 4;
+            if (!mAmbient) {
+                // We dont want to display the weather icon in ambient mode.
+                // Align icon with the start of current day string.
+                canvas.drawBitmap(mWeatherIconBitmap, mStartX - mCurrentDayDesiredWidth / 2,
+                        weatherIconY,
+                        null);
+            }
+            int temperatureY = (int) (weatherIconY + mYOffset);
 
             // We want the temp max/min to be evenly distributed on the remaining width.
             int postIconX = (int) (mStartX - (mCurrentDayDesiredWidth / 2 - mWeatherIconBitmap.getScaledWidth(canvas)));
             int remainingWidth = (int) (mCurrentDayDesiredWidth - mWeatherIconBitmap.getScaledWidth(canvas));
 
-            AnalogWatchFaceUtils.setTextSizeForWidth(mTempMaxPaint, 2 * remainingWidth / 5, strTempMax);
-            AnalogWatchFaceUtils.setTextSizeForWidth(mTempMinPaint, 2 * remainingWidth / 5, strTempMin);
+            AnalogWatchFaceUtils.setTextSizeForWidth(mTempMaxPaint, 2 * remainingWidth / 5, mTempMax);
+            AnalogWatchFaceUtils.setTextSizeForWidth(mTempMinPaint, 2 * remainingWidth / 5, mTempMin);
 
             Log.d(LOG_TAG, String.format("Icon scaled width: %d", mWeatherIconBitmap.getScaledWidth(canvas)));
             Log.d(LOG_TAG, String.format("Canvas width: %d", canvas.getWidth()));
             Log.d(LOG_TAG, String.format("temperatureY: %d", temperatureY));
             float tempMaxCenterX = postIconX + remainingWidth / 4;
 
-            canvas.drawText(strTempMax,
+            canvas.drawText(mTempMax,
                     tempMaxCenterX,
                     temperatureY,
                     mTempMaxPaint);
-            canvas.drawText(strTempMin,
+            canvas.drawText(mTempMin,
                     postIconX + 3 * remainingWidth / 4,
                     temperatureY,
                     mTempMinPaint);
@@ -313,13 +296,20 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
             return mDateFormat.format(date);
         }
 
+        @Override
+        public void onApplyWindowInsets(WindowInsets insets) {
+            super.onApplyWindowInsets(insets);
+            // This is where we'd get our custom resources for round/square watches.
+            // (Since there are no resource qualifiers as for phone size/density, we need to do it manually)
+            // boolean isRound = insets.isRound();
+        }
 
         @Override
         public void onVisibilityChanged(boolean visible) {
             super.onVisibilityChanged(visible);
             /* the watch face became visible or invisible */
             if (visible) {
-                if (!mGoogleApiClient.isConnected()) {
+                if (!mGoogleApiClient.isConnected() && !mGoogleApiClient.isConnecting()) {
                     mGoogleApiClient.connect();
                 }
 
@@ -327,7 +317,6 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
                 mCalendar.setTimeZone(TimeZone.getDefault());
                 initFormats();
                 invalidate();
-
             }
         }
 
@@ -344,9 +333,9 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
                             Log.d(LOG_TAG, "in onResult!");
                             Log.d(LOG_TAG, String.format("in onResult, %d items...", dataItems.getCount()));
                             for (DataItem dataItem : dataItems) {
-                                Log.d(LOG_TAG, "in onResult! - loop");
                                 parseData(dataItem);
                             }
+                            dataItems.release();
                         }
                     }
             );
@@ -368,19 +357,23 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
             for (DataEvent dataEvent : dataEventBuffer) {
                 // 2 types of event: TYPE_CHANGED, TYPE_DELETED. That's it.
                 Log.d(LOG_TAG, String.format("DATA EVENT TYPE: %s", dataEvent.getType()));
-                parseData(dataEvent.getDataItem());
+                if (dataEvent.getType() == DataEvent.TYPE_CHANGED) {
+                    parseData(dataEvent.getDataItem());
+                }
+                dataEventBuffer.release();
             }
-
-
         }
 
         private void parseData(DataItem dataItem) {
             Uri uri = dataItem.getUri();
             Log.d(LOG_TAG, String.format("in parseData, event from uri: %s", uri.toString()));
 
-            // Pfffffffff this is complicated!
             DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
-            Log.d(LOG_TAG, String.format("YAY, got value: %s", dataMap.getString("KEY_STRING")));
+            mTempMax = dataMap.getString("KEY_TEMP_MAX");
+            mTempMin = dataMap.getString("KEY_TEMP_MIN");
+            mWeatherIconResource = AnalogWatchFaceUtils.getIconResourceForWeatherCondition(dataMap.getInt("KEY_WEATHER_ID"));
+            mWeatherIconBitmap = BitmapFactory.decodeResource(getResources(), mWeatherIconResource);
+            invalidate();
         }
     }
 }
