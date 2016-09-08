@@ -11,17 +11,17 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
         <service android:name=".AnalogWatchFaceService"
-            android:label="Analog Watch Face"
+            android:label="Sunshine Watch Face"
             android:permission="android.permission.BIND_WALLPAPER" >
             <meta-data
                 android:name="android.service.wallpaper"
                 android:resource="@xml/watch_face" />
             <meta-data
                 android:name="com.google.android.wearable.watchface.preview"
-                android:resource="@drawable/preview_analog" />
+                android:resource="@drawable/preview_square" />
             <meta-data
                 android:name="com.google.android.wearable.watchface.preview_circular"
-                android:resource="@drawable/preview_analog_circular" />
+                android:resource="@drawable/preview_circular" />
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
                 <category

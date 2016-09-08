@@ -84,7 +84,6 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
 
         // dimens
         private float mYOffset;
-        private float mLineHeight;
         private float mDelimiterWidth;
 
         public Paint mSecondaryPaint;
@@ -97,7 +96,7 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
         // Sensible defaults so we can use them to decide the font size for the temperature.
         private String mTempMax = "20°";
         private String mTempMin = "20°";
-        private int mWeatherIconResource = R.drawable.ic_clear;
+        private int mWeatherDefaultIconResource = R.drawable.ic_clear;
         private float mCurrentDayDesiredWidth;
 
         private GoogleApiClient mGoogleApiClient;
@@ -131,7 +130,6 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
 
             Resources resources = AnalogWatchFaceService.this.getResources();
             mYOffset = resources.getDimension(R.dimen.y_offset);
-            mLineHeight = resources.getDimension(R.dimen.line_height);
             mDelimiterWidth = resources.getDimension(R.dimen.delimiter_width);
 
             mBackgroundPaint = new Paint();
@@ -171,7 +169,7 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
                     resources.getString(R.string.temperature_example));
 
             mBackgroundBitmap = BitmapFactory.decodeResource(resources, R.drawable.bg);
-            mWeatherIconBitmap = BitmapFactory.decodeResource(resources, R.drawable.ic_clear);
+            mWeatherIconBitmap = BitmapFactory.decodeResource(resources, mWeatherDefaultIconResource);
 
 
             mGoogleApiClient = new GoogleApiClient.Builder(getApplicationContext(), this, this)
@@ -278,6 +276,17 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
             Log.d(LOG_TAG, String.format("temperatureY: %d", temperatureY));
             float tempMaxCenterX = postIconX + remainingWidth / 4;
 
+            if(mTempMax.length() != mTempMin.length()) {
+                // Balance string length by adding blank spaces.
+                // Important because we use a given width and compute the font size to fill it.
+                while (mTempMax.length() > mTempMin.length()) {
+                    mTempMax = " ".concat(mTempMax);
+                }
+                while (mTempMin.length() > mTempMax.length()) {
+                    mTempMin = " ".concat(mTempMin);
+                }
+            }
+
             canvas.drawText(mTempMax,
                     tempMaxCenterX,
                     temperatureY,
@@ -369,10 +378,19 @@ public class AnalogWatchFaceService extends CanvasWatchFaceService {
             Log.d(LOG_TAG, String.format("in parseData, event from uri: %s", uri.toString()));
 
             DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
-            mTempMax = dataMap.getString("KEY_TEMP_MAX");
-            mTempMin = dataMap.getString("KEY_TEMP_MIN");
-            mWeatherIconResource = AnalogWatchFaceUtils.getIconResourceForWeatherCondition(dataMap.getInt("KEY_WEATHER_ID"));
-            mWeatherIconBitmap = BitmapFactory.decodeResource(getResources(), mWeatherIconResource);
+            String newTempMax = dataMap.getString("KEY_TEMP_MAX");
+            String newTempMin = dataMap.getString("KEY_TEMP_MIN");
+            if (newTempMax != null) {
+                mTempMax = newTempMax;
+            }
+            if (newTempMin != null) {
+                mTempMin = newTempMin;
+            }
+            int weatherIconResource = AnalogWatchFaceUtils.getIconResourceForWeatherCondition(dataMap.getInt("KEY_WEATHER_ID"));
+            if(weatherIconResource != -1) {
+                mWeatherIconBitmap = BitmapFactory.decodeResource(getResources(), weatherIconResource);
+            }
+
             invalidate();
         }
     }
